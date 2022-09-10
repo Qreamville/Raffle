@@ -3,8 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-etherscan";
 import "solidity-coverage";
 import "@typechain/hardhat";
-import "dotenv";
-// require("dotenv").config();
+require("dotenv").config();
 
 const config: HardhatUserConfig = {
   solidity: "0.8.9",
