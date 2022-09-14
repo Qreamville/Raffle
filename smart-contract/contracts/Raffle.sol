@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+
 /* Errors */
 error Raffle__UpkeepNotNeeded(
     uint256 currentBalance,
@@ -12,10 +15,22 @@ error Raffle__TransferFailed();
 error Raffle__SendMoreToEnterRaffle();
 error Raffle__RaffleNotOpen();
 
-contract Raffle {
+contract Raffle is VRFConsumerBaseV2 {
+    VRFCoordinatorV2Interface private immutable vrfCoordinator;
+
     /* State Variables */
     uint256 private immutable entranceFee;
     address payable[] private players;
+
+    /* VRF Related Variables */
+    bytes32 private immutable keyHash;
+    uint64 private immutable subscriptionId;
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    uint32 private immutable callbackGasLimit;
+    uint32 private constant NUM_WORDS = 1;
+
+    /* Lottery Variables */
+    address payable recentWinner;
 
     /* Events */
     event RequestedRaffleWinner(uint256 indexed requestId);
@@ -23,8 +38,18 @@ contract Raffle {
     event WinnerPicked(address indexed player);
 
     /* Constructor */
-    constructor(uint256 _entranceFee) {
+    constructor(
+        address vrfCoordinatorV2,
+        uint256 _entranceFee,
+        bytes32 _keyHash,
+        uint64 _subscriptionId,
+        uint32 _callbackGasLimit
+    ) VRFConsumerBaseV2(vrfCoordinatorV2) {
         entranceFee = _entranceFee;
+        vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorV2);
+        keyHash = _keyHash;
+        subscriptionId = _subscriptionId;
+        callbackGasLimit = _callbackGasLimit;
     }
 
     /* Functions */
@@ -35,9 +60,31 @@ contract Raffle {
         players.push(payable(msg.sender));
     }
 
-    function pickRandom() external {}
+    function requestRandomWinner() external {
+        uint256 requestId = vrfCoordinator.requestRandomWords(
+            keyHash,
+            subscriptionId,
+            REQUEST_CONFIRMATIONS,
+            callbackGasLimit,
+            NUM_WORDS
+        );
+        emit RequestedRaffleWinner(requestId);
+    }
 
-    // View & Pure Functions
+    function fulfillRandomWords(
+        uint256, /*requestId*/
+        uint256[] memory randomWords
+    ) internal override {
+        uint256 randomNumber = randomWords[0] % players.length;
+        recentWinner = players[randomNumber];
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        if (!success) {
+            revert Raffle__TransferFailed();
+        }
+        emit WinnerPicked(recentWinner);
+    }
+
+    /* View & Pure Functions */
     function getNumberOfPlayers() public view returns (uint256) {
         return players.length;
     }
@@ -50,6 +97,10 @@ contract Raffle {
         return entranceFee;
     }
 
+    function getRecentWinner() public view returns (address) {
+        return recentWinner;
+    }
+
     // function getRaffleState() public view returns (RaffleState) {
     //     return raffleState;
     // }
@@ -60,10 +111,6 @@ contract Raffle {
 
     // function getRequestConfirmations() public pure returns (uint256) {
     //     return REQUEST_CONFIRMATIONS;
-    // }
-
-    // function getRecentWinner() public view returns (address) {
-    //     return recentWinner;
     // }
 
     // function getLastTimeStamp() public view returns (uint256) {
