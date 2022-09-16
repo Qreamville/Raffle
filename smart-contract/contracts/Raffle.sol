@@ -11,7 +11,6 @@ error Raffle__UpkeepNotNeeded(
     uint256 numPlayers,
     uint256 raffleState
 );
-error Raffle__NotEnoughEthEntered();
 error Raffle__TransferFailed();
 error Raffle__SendMoreToEnterRaffle();
 error Raffle__RaffleNotOpen();
@@ -68,7 +67,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /* Functions */
     function enterRaffle() public payable {
         if (msg.value < entranceFee) {
-            revert Raffle__NotEnoughEthEntered();
+            revert Raffle__SendMoreToEnterRaffle();
         }
         if (raffleState != RaffleState.OPEN) {
             revert Raffle__RaffleNotOpen();
