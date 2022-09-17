@@ -73,6 +73,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
             revert Raffle__RaffleNotOpen();
         }
         players.push(payable(msg.sender));
+        emit RaffleEnter(msg.sender);
     }
 
     function checkUpkeep(
